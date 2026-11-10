@@ -8,6 +8,8 @@ use Illuminate\Contracts\Filesystem\Factory;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Support\Str;
+use Illuminate\Contracts\Cache\Repository as Cache;
+use Psr\Log\LoggerInterface;
 
 /**
  * Ending a season: the canvas closes and the next one opens in the same
@@ -25,6 +27,8 @@ class Archive
         private readonly ConnectionInterface $db,
         private readonly Canvas $canvas,
         private readonly Factory $filesystem,
+        private readonly Cache $cache,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -58,6 +62,23 @@ class Archive
         if ($season->isOpen() || ($season->image_path && $season->timelapse_path)) {
             return $season;
         }
+        // A disk that keeps failing is retried every ten minutes, not on every gallery view.
+        $failed = 'ernestdefoe-mural.ensure-failed.'.$season->id;
+        if ($this->cache->get($failed)) {
+            return $season;
+        }
+        try {
+            return $this->write($season);
+        } catch (\Throwable $e) {
+            $this->cache->put($failed, true, 600);
+            $this->logger->error('[mural] could not save season '.$season->number.': '.$e->getMessage());
+
+            return $season;
+        }
+    }
+
+    private function write(Season $season): Season
+    {
         @set_time_limit(300);
 
         $disk = $this->disk();

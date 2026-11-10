@@ -20,7 +20,10 @@ class PlaceController implements RequestHandlerInterface
 {
     use Seasons;
 
-    public function __construct(private readonly Canvas $canvas)
+    /** Even with no cooldown set, nobody places more than this a minute (a script would hold the season's lock). */
+    private const PER_MINUTE = 60;
+
+    public function __construct(private readonly Canvas $canvas, private readonly RateLimit $limit)
     {
     }
 
@@ -41,6 +44,10 @@ class PlaceController implements RequestHandlerInterface
         $color = self::int($body, 'color');
         if ($x === null || $y === null || $color === null) {
             return Errors::make(422, 'mural_bad_tile');
+        }
+
+        if ($this->limit->exceeded($request, $actor, 'place', self::PER_MINUTE)) {
+            return Errors::make(429, 'mural_slow_down');
         }
 
         try {
