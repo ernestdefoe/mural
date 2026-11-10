@@ -33,7 +33,7 @@ class PageContent
         $mural = (string) $this->translator->trans('ernestdefoe-mural.forum.page.title');
         $number = (int) Arr::get($request->getQueryParams(), 'number');
         $forum = $this->url->to('forum');
-        $image = $this->url->to('api')->path('mural/preview.png');
+        $image = $this->url->to('api')->path('mural/preview');
 
         if (! RequestUtil::getActor($request)->can(Settings::VIEW)) {
             $document->title = $mural;

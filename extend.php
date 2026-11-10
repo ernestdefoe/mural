@@ -47,7 +47,7 @@ return [
         ->post('/mural/tiles', 'mural.place', Api\PlaceController::class)
         ->get('/mural/tiles', 'mural.tile', Api\TileController::class)
         ->get('/mural/stats', 'mural.stats', Api\StatsController::class)
-        ->get('/mural/preview.png', 'mural.preview', Api\PreviewController::class)
+        ->get('/mural/preview', 'mural.preview', Api\PreviewController::class)
         ->get('/mural/seasons', 'mural.seasons.index', Api\SeasonsController::class)
         ->post('/mural/seasons', 'mural.seasons.end', Api\EndSeasonController::class)
         ->get('/mural/rollbacks', 'mural.rollbacks.index', Api\RollbacksController::class)

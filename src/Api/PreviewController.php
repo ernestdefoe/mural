@@ -17,7 +17,10 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
 /**
- * GET /api/mural/preview.png[?season=N]: the canvas as a picture, for the
+ * 🚨 No ".png" on the route: nginx serves any URL ending in an image extension as
+ * a static file, so it never reaches PHP on a real server (Herd hides this).
+ *
+ * GET /api/mural/preview[?season=N]: the canvas as a picture, for the
  * sidebar widget and for link previews. Encoded at most every 20 seconds
  * whatever the traffic (the PNG is cached with the head it was drawn at);
  * a finished season redirects to its saved file.

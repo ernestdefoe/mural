@@ -10,7 +10,7 @@ import { fof, hasFofWidgets, placed } from '../common/fofWidgets';
 /**
  * "Live mural": the canvas as it is now, a click away from painting.
  *
- * Just an <img> of /api/mural/preview.png, which the server encodes at most
+ * Just an <img> of /api/mural/preview, which the server encodes at most
  * every 20 seconds however many people look; the picture refreshes every
  * minute while the tab is visible. Offered to every widget host there is
  * (Bespoke, FoF Forum Widgets), and to the stock sidebar otherwise.
@@ -56,7 +56,7 @@ export class MuralWidget extends Component<{ compact?: boolean; heading?: string
 
   view() {
     if (!app.forum.attribute('muralCanView')) return null;
-    const src = `${app.forum.attribute('apiUrl')}/mural/preview.png?v=${tick}`;
+    const src = `${app.forum.attribute('apiUrl')}/mural/preview?v=${tick}`;
 
     return (
       <div className={classList('MuralWidget', this.attrs.compact && 'MuralWidget--compact')}>

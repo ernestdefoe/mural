@@ -72,7 +72,7 @@ export default class GalleryPage extends Page {
         {this.current ? (
           <Link className="MuralCard MuralCard--now" href={app.route('mural')}>
             <span className="MuralCard-frame">
-              <img src={`${app.forum.attribute('apiUrl')}/mural/preview.png`} alt="" loading="lazy" />
+              <img src={`${app.forum.attribute('apiUrl')}/mural/preview`} alt="" loading="lazy" />
               <span className="MuralPill MuralPill--live MuralCard-pill">
                 <span className="MuralPill-dot" aria-hidden="true" />
                 {t('page.live')}

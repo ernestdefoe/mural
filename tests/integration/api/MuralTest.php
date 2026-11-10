@@ -285,7 +285,7 @@ class MuralTest extends TestCase
     public function the_preview_is_a_png(): void
     {
         $this->place(2, 0, 0, 6);
-        $response = $this->send($this->request('GET', '/api/mural/preview.png'));
+        $response = $this->send($this->request('GET', '/api/mural/preview'));
 
         $this->assertSame(200, $response->getStatusCode());
         $this->assertSame('image/png', $response->getHeaderLine('Content-Type'));
