@@ -32,6 +32,7 @@ export default class MuralPage extends Page {
   private statsTimer: number | undefined;
   private tick: number | undefined;
   private urlTimer: number | undefined;
+  private dockObserver: ResizeObserver | undefined;
 
   oninit(vnode: Mithril.Vnode) {
     super.oninit(vnode);
@@ -59,13 +60,24 @@ export default class MuralPage extends Page {
     this.live.load().then(() => this.fromUrl());
     this.liftDock();
     window.addEventListener('resize', this.liftDock);
+    this.dockObserver = new ResizeObserver(() => this.liftDock());
+    const dock = vnode.dom.querySelector('.MuralDock');
+    if (dock) this.dockObserver.observe(dock);
   }
 
-  /** A bottom tab bar (Mobile Tab and its forks) is fixed over the page: the pinned dock sits above it, not under it. */
+  /**
+   * On phones the dock is fixed to the bottom of the screen (sticky would do,
+   * but any theme with overflow-x: hidden on <body> silently turns sticky off).
+   * It sits above a bottom tab bar (Mobile Tab and its forks), and the page
+   * keeps room for it at the end.
+   */
   liftDock = () => {
     const bar = document.querySelector<HTMLElement>('.MobileTab-bar, .MobileTab');
     const lift = bar && getComputedStyle(bar).position === 'fixed' && bar.offsetHeight ? bar.offsetHeight : 0;
-    document.documentElement.style.setProperty('--mural-dock-bottom', `${lift}px`);
+    const dock = document.querySelector<HTMLElement>('.MuralDock');
+    const root = document.documentElement.style;
+    root.setProperty('--mural-dock-bottom', `${lift}px`);
+    root.setProperty('--mural-dock-height', `${dock?.offsetHeight || 0}px`);
   };
 
   onremove(vnode: Mithril.VnodeDOM) {
@@ -73,7 +85,9 @@ export default class MuralPage extends Page {
     this.live.stop();
     this.viewer?.destroy();
     window.removeEventListener('resize', this.liftDock);
+    this.dockObserver?.disconnect();
     document.documentElement.style.removeProperty('--mural-dock-bottom');
+    document.documentElement.style.removeProperty('--mural-dock-height');
     clearInterval(this.statsTimer);
     clearInterval(this.tick);
     clearTimeout(this.hoverTimer);

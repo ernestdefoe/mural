@@ -980,7 +980,7 @@ html:not(#x-hi) .MuralWidget-link:hover {
     font-size: 19px;
   }
   .MuralStage {
-    height: ~"max(300px, calc(100svh - 300px - var(--mural-dock-bottom, 0px)))";
+    height: ~"max(280px, calc(100svh - 190px - var(--mural-dock-height, 150px) - var(--mural-dock-bottom, 0px)))";
     border-radius: 12px;
   }
   .MuralStage-tools {
@@ -992,11 +992,14 @@ html:not(#x-hi) .MuralWidget-link:hover {
     top: 8px;
   }
   // The dock stays on screen while you pan, so painting never needs a scroll.
+  // Fixed, not sticky: themes with overflow-x: hidden on <body> turn sticky off.
   .MuralDock {
-    position: sticky;
+    position: fixed;
+    left: 0;
+    right: 0;
     bottom: var(--mural-dock-bottom, 0px);
     z-index: 3;
-    margin: 10px -16px 0;
+    margin: 0;
     padding: 10px 16px ~"calc(10px + env(safe-area-inset-bottom))";
     border-radius: 16px 16px 0 0;
     box-shadow: 0 -6px 18px -10px rgba(0, 0, 0, 0.35);
@@ -1010,7 +1013,8 @@ html:not(#x-hi) .MuralWidget-link:hover {
     display: flex;
     overflow-x: auto;
     gap: 7px;
-    padding: 4px 2px 6px;
+    // Room for the chosen swatch's ring, which the scroller would clip.
+    padding: 7px 5px;
     scroll-snap-type: x proximity;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
@@ -1033,6 +1037,10 @@ html:not(#x-hi) .MuralWidget-link:hover {
   }
   .MuralStats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  // Room at the end of the page for the fixed dock.
+  .MuralPage .MuralInfo {
+    padding-bottom: ~"calc(var(--mural-dock-height, 0px) + 16px)";
   }
   .MuralModal .MuralFields--four {
     grid-template-columns: repeat(2, minmax(0, 1fr));
