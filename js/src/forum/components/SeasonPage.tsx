@@ -10,7 +10,7 @@ import type Mithril from 'mithril';
 import { call, fmt, seasonName, t, type StatsRow, type TileInfo } from '../api';
 import Live from '../Live';
 import Viewer, { type Tile } from '../Viewer';
-import { Leaders, Person, Time } from './parts';
+import { HoverCard, Leaders, type Hover } from './parts';
 import { dateRange } from './GalleryPage';
 import { IndexSidebar, PageStructure } from '../paint';
 
@@ -36,8 +36,7 @@ export default class SeasonPage extends Page {
   playing = false;
   speed = 1;
   fetching = false;
-  final: Uint8Array | null = null;
-  hover: { tile: Tile; x: number; y: number; info?: TileInfo | null } | null = null;
+  hover: Hover | null = null;
   private frame = 0;
   private last = 0;
   private hoverTimer: number | undefined;
@@ -67,7 +66,6 @@ export default class SeasonPage extends Page {
       if (!state) return;
       const title = extractText(seasonName(state.season));
       app.setTitle(title);
-      this.final = this.viewer ? this.viewer.pixels.slice() : null;
     });
   }
 
@@ -254,7 +252,7 @@ export default class SeasonPage extends Page {
               onclick={() => this.viewer?.fit()}
             />
           </div>
-          {this.hoverCard()}
+          <HoverCard hover={this.hover} viewer={this.viewer} palette={this.live.state?.season.palette || []} />
         </div>
         {season?.timelapseUrl ? this.player() : null}
         <section className="MuralInfo">
@@ -310,35 +308,6 @@ export default class SeasonPage extends Page {
             </button>
           ))}
         </div>
-      </div>
-    );
-  }
-
-  hoverCard(): Mithril.Children {
-    const h = this.hover;
-    if (!h || !this.viewer) return null;
-    const box = this.viewer.canvas.getBoundingClientRect();
-    const left = Math.min(box.width - 230, Math.max(8, h.x - box.left + 16));
-    const top = Math.min(box.height - 70, Math.max(8, h.y - box.top + 16));
-    const palette = this.live.state?.season.palette || [];
-
-    return (
-      <div className="MuralHover" style={{ left: `${left}px`, top: `${top}px` }} role="status">
-        <span className="MuralSwatch" style={{ background: palette[this.viewer.colourAt(h.tile[0], h.tile[1])] }} />
-        <span className="MuralHover-text">
-          <span className="MuralHover-where">
-            {h.tile[0]}, {h.tile[1]}
-          </span>
-          {h.info === undefined ? (
-            <span className="MuralHover-who">…</span>
-          ) : h.info ? (
-            <span className="MuralHover-who">
-              <Person row={h.info.user} size="small" /> <Time at={h.info.placedAt} />
-            </span>
-          ) : (
-            <span className="MuralHover-who">{t('tile.blank')}</span>
-          )}
-        </span>
       </div>
     );
   }

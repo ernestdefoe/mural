@@ -3,8 +3,11 @@ import Link from 'flarum/common/components/Link';
 import Avatar from 'flarum/common/components/Avatar';
 import username from 'flarum/common/helpers/username';
 import humanTime from 'flarum/common/helpers/humanTime';
+import extractText from 'flarum/common/utils/extractText';
 import type Mithril from 'mithril';
-import { fmt, person, t, type Leader, type StatsRow, type UserRow } from '../api';
+import { fmt, person, t, type Leader, type StatsRow, type TileInfo, type UserRow } from '../api';
+import type Viewer from '../Viewer';
+import type { Tile } from '../Viewer';
 
 /** A Mithril component from a function of its attrs (a bare function tag is a closure component to Mithril, not a render function). */
 function fc<A>(render: (attrs: A) => Mithril.Children) {
@@ -49,7 +52,7 @@ export const Hours = fc(({ stats }: { stats: StatsRow }) => {
   const label = (h: number) => new Date(from + h * 3600000).toLocaleTimeString([], { hour: 'numeric' });
   return (
     <div className="MuralHours">
-      <div className="MuralHours-bars" role="img" aria-label={t('stats.hours_label', { count: stats.last24 }) as string}>
+      <div className="MuralHours-bars" role="img" aria-label={extractText(t('stats.hours_label', { count: stats.last24 }))}>
         {stats.hours.map((n, h) => (
           <span className="MuralHours-bar" style={{ height: `${n ? Math.max(6, (n / max) * 100) : 2}%` }} title={`${label(h)} · ${fmt(n)}`} />
         ))}
@@ -59,6 +62,41 @@ export const Hours = fc(({ stats }: { stats: StatsRow }) => {
         <span>{label(12)}</span>
         <span>{t('stats.now')}</span>
       </div>
+    </div>
+  );
+});
+
+export interface Hover {
+  tile: Tile;
+  x: number;
+  y: number;
+  info?: TileInfo | null;
+}
+
+/** "Who painted this": a small card by the pointer, kept inside the stage. */
+export const HoverCard = fc(({ hover, viewer, palette }: { hover: Hover | null; viewer: Viewer | null; palette: string[] }) => {
+  if (!hover || !viewer) return null;
+  const box = viewer.canvas.getBoundingClientRect();
+  const left = Math.min(box.width - 230, Math.max(8, hover.x - box.left + 16));
+  const top = Math.min(box.height - 70, Math.max(8, hover.y - box.top + 16));
+
+  return (
+    <div className="MuralHover" style={{ left: `${left}px`, top: `${top}px` }} role="status">
+      <span className="MuralSwatch" style={{ background: palette[viewer.colourAt(hover.tile[0], hover.tile[1])] }} />
+      <span className="MuralHover-text">
+        <span className="MuralHover-where">
+          {hover.tile[0]}, {hover.tile[1]}
+        </span>
+        {hover.info === undefined ? (
+          <span className="MuralHover-who">…</span>
+        ) : hover.info ? (
+          <span className="MuralHover-who">
+            <Person row={hover.info.user} size="small" /> <Time at={hover.info.placedAt} />
+          </span>
+        ) : (
+          <span className="MuralHover-who">{t('tile.blank')}</span>
+        )}
+      </span>
     </div>
   );
 });

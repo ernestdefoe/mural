@@ -11,7 +11,7 @@ import type Mithril from 'mithril';
 import { call, errorText, fmt, seasonName, t, type StatsRow, type TileInfo } from '../api';
 import Live from '../Live';
 import Viewer, { type Tile } from '../Viewer';
-import { Hours, Leaders, Person, Time } from './parts';
+import { Hours, HoverCard, Leaders, type Hover } from './parts';
 import Dock from './Dock';
 import { BansModal, EndSeasonModal, RollbackModal } from './ModTools';
 import { IndexSidebar, PageStructure } from '../paint';
@@ -24,7 +24,7 @@ export default class MuralPage extends Page {
   colour: number | null = null;
   selected: Tile | null = null;
   info: TileInfo | null | undefined = undefined;
-  hover: { tile: Tile; x: number; y: number; info?: TileInfo | null } | null = null;
+  hover: Hover | null = null;
   placing = false;
   zoomLabel = '';
   private infoCache = new Map<string, TileInfo | null>();
@@ -325,7 +325,7 @@ export default class MuralPage extends Page {
             </Button>
           </div>
         ) : null}
-        {this.hoverCard()}
+        <HoverCard hover={this.hover} viewer={this.viewer} palette={this.live.state?.season.palette || []} />
       </div>
     );
   }
@@ -338,35 +338,6 @@ export default class MuralPage extends Page {
         () => {}
       );
     }, 450);
-  }
-
-  hoverCard(): Mithril.Children {
-    const h = this.hover;
-    if (!h || !this.viewer) return null;
-    const box = this.viewer.canvas.getBoundingClientRect();
-    const left = Math.min(box.width - 230, Math.max(8, h.x - box.left + 16));
-    const top = Math.min(box.height - 70, Math.max(8, h.y - box.top + 16));
-    const palette = this.live.state?.season.palette || [];
-
-    return (
-      <div className="MuralHover" style={{ left: `${left}px`, top: `${top}px` }} role="status">
-        <span className="MuralSwatch" style={{ background: palette[this.viewer.colourAt(h.tile[0], h.tile[1])] }} />
-        <span className="MuralHover-text">
-          <span className="MuralHover-where">
-            {h.tile[0]}, {h.tile[1]}
-          </span>
-          {h.info === undefined ? (
-            <span className="MuralHover-who">…</span>
-          ) : h.info ? (
-            <span className="MuralHover-who">
-              <Person row={h.info.user} size="small" /> <Time at={h.info.placedAt} />
-            </span>
-          ) : (
-            <span className="MuralHover-who">{t('tile.blank')}</span>
-          )}
-        </span>
-      </div>
-    );
   }
 
   info_(): Mithril.Children {

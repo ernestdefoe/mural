@@ -3,6 +3,7 @@ import Component from 'flarum/common/Component';
 import Link from 'flarum/common/components/Link';
 import Icon from 'flarum/common/components/Icon';
 import classList from 'flarum/common/utils/classList';
+import extractText from 'flarum/common/utils/extractText';
 import type Mithril from 'mithril';
 import { fof, hasFofWidgets, placed } from '../common/fofWidgets';
 
@@ -65,7 +66,7 @@ export class MuralWidget extends Component<{ compact?: boolean; heading?: string
             <span className="MuralWidget-title">{this.attrs.heading || app.translator.trans('ernestdefoe-mural.forum.widget.title')}</span>
           </span>
           <span className="MuralWidget-frame">
-            <img src={src} alt={app.translator.trans('ernestdefoe-mural.forum.widget.alt') as string} loading="lazy" decoding="async" />
+            <img src={src} alt={extractText(app.translator.trans('ernestdefoe-mural.forum.widget.alt'))} loading="lazy" decoding="async" />
           </span>
           <span className="MuralWidget-cta">
             <Icon name="fas fa-paintbrush" /> {app.translator.trans('ernestdefoe-mural.forum.widget.cta')}
