@@ -16,7 +16,8 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 /**
  * GET /api/mural/seasons: the gallery, newest first, each with its saved
- * picture, timelapse and its top three painters (one query for all of them).
+ * picture, timelapse and its top three painters (kept once a season ends:
+ * after the first view, one query for all of their names).
  */
 class SeasonsController implements RequestHandlerInterface
 {

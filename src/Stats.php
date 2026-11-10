@@ -91,26 +91,30 @@ class Stats
     }
 
     /**
-     * The top painters of several seasons in one query (a window per season).
+     * The top painters of finished seasons. They never change once a season
+     * has ended, so each season's ids are worked out once (one indexed query,
+     * portable to MySQL 5.7, which has no window functions) and kept; members
+     * are then resolved for this viewer in one query.
      *
      * @param list<int> $seasonIds
      * @return array<int, list<array{user: array<string, mixed>|null, tiles: int}>>
      */
     public function leaders(array $seasonIds, int $top, User $actor): array
     {
-        if (! $seasonIds) {
-            return [];
+        $rows = [];
+        foreach ($seasonIds as $id) {
+            $rows[$id] = $this->cache->rememberForever('ernestdefoe-mural.leaders.'.$id.'.'.$top, fn () => $this->db->table('mural_painters')
+                ->where('season_id', $id)->where('tiles', '>', 0)->orderByDesc('tiles')->orderBy('last_at')->limit($top)
+                ->get(['user_id', 'tiles'])->map(fn ($row) => [(int) $row->user_id, (int) $row->tiles])->all());
         }
-        $ranked = $this->db->table('mural_painters')->whereIn('season_id', $seasonIds)->where('tiles', '>', 0)
-            ->select(['season_id', 'user_id', 'tiles'])
-            ->selectRaw('row_number() over (partition by season_id order by tiles desc, last_at asc) as place');
-        $rows = $this->db->query()->fromSub($ranked, 'ranked')->where('place', '<=', $top)->orderBy('season_id')->orderBy('place')->get();
-        $users = User::query()->whereVisibleTo($actor)->whereIn('id', $rows->pluck('user_id')->unique())->get()->keyBy('id');
 
+        $users = User::query()->whereVisibleTo($actor)->whereIn('id', array_unique(array_merge([], ...array_map(fn ($r) => array_column($r, 0), array_values($rows)))))->get()->keyBy('id');
         $leaders = [];
-        foreach ($rows as $row) {
-            if ($users->has($row->user_id)) {
-                $leaders[(int) $row->season_id][] = ['user' => $this->presenter->user($users->get($row->user_id)), 'tiles' => (int) $row->tiles];
+        foreach ($rows as $id => $list) {
+            foreach ($list as [$userId, $tiles]) {
+                if ($users->has($userId)) {
+                    $leaders[$id][] = ['user' => $this->presenter->user($users->get($userId)), 'tiles' => $tiles];
+                }
             }
         }
 
