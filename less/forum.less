@@ -1003,7 +1003,9 @@ html:not(#x-hi) .MuralWidget-link:hover {
     left: 0;
     right: 0;
     bottom: var(--mural-dock-bottom, 0px);
-    z-index: 3;
+    // Over other extensions' floating buttons (they sit at 900-1002) on Mural's
+    // own page, under a bottom tab bar (1025), the drawer and modals (1050+).
+    z-index: 1010;
   }
   .MuralDock {
     margin: 0;
