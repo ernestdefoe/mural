@@ -291,4 +291,83 @@ class MuralTest extends TestCase
         $this->assertSame('image/png', $response->getHeaderLine('Content-Type'));
         $this->assertStringStartsWith("\x89PNG", (string) $response->getBody());
     }
+
+    #[Test]
+    public function a_flushed_cache_after_a_rollback_does_not_send_canvases_into_a_reset_loop(): void
+    {
+        $this->place(2, 2, 2, 9);
+        $this->api('POST', '/rollbacks', 5, ['x1' => 0, 'y1' => 0, 'x2' => 5, 'y2' => 5, 'username' => 'normal']);
+        [, $state] = $this->api('GET', '', null);
+        $this->assertSame(1, $state['data']['epoch']);
+
+        $this->app()->getContainer()->make('cache.store')->flush();
+
+        $query = ['s' => $state['data']['season']['id'], 'since' => $state['data']['upto'], 'epoch' => 1];
+        [, $poll] = $this->api('GET', '/changes', null, [], $query);
+        $this->assertArrayNotHasKey('reset', $poll, 'a cache miss must read the real epoch');
+        [, $again] = $this->api('GET', '/changes', null, [], $query);
+        $this->assertArrayNotHasKey('reset', $again);
+    }
+
+    #[Test]
+    public function a_forum_closed_to_guests_keeps_the_mural_closed(): void
+    {
+        $this->place(2, 1, 1, 6);
+        $this->database()->table('group_permission')->where('group_id', Group::GUEST_ID)->where('permission', 'viewForum')->delete();
+
+        foreach (['', '/stats', '/seasons', '/preview'] as $path) {
+            $this->assertContains($this->api('GET', $path, null)[0], [401, 403], "guest $path");
+        }
+        $this->assertContains($this->api('GET', '/tiles', null, [], ['x' => 1, 'y' => 1])[0], [401, 403]);
+        $this->assertContains($this->api('GET', '/changes', null, [], ['s' => 1, 'since' => 0, 'epoch' => 0])[0], [401, 403]);
+
+        // Members still see it.
+        [$status, $tile] = $this->api('GET', '/tiles', 3, [], ['x' => 1, 'y' => 1]);
+        $this->assertSame(200, $status);
+        $this->assertSame('normal', $tile['data']['user']['username']);
+    }
+
+    #[Test]
+    public function index_and_foreign_key_names_carry_the_table_prefix_and_fit(): void
+    {
+        $db = $this->database();
+        $prefix = $db->getTablePrefix();
+        $schema = $db->getSchemaBuilder();
+        foreach (['mural_seasons', 'mural_placements', 'mural_painters', 'mural_rollbacks', 'mural_bans'] as $table) {
+            $names = array_merge(
+                array_column($schema->getIndexes($table), 'name'),
+                array_filter(array_column($schema->getForeignKeys($table), 'name'))
+            );
+            foreach ($names as $name) {
+                if (strtolower($name) === 'primary' || str_starts_with($name, 'sqlite_autoindex')) {
+                    continue;
+                }
+                $this->assertStringStartsWith($prefix.'mural_', $name, "$table: $name");
+                $this->assertLessThanOrEqual(64, strlen($name), $name);
+            }
+        }
+    }
+
+    #[Test]
+    public function a_rollback_redraws_only_its_area_from_the_newest_live_tiles(): void
+    {
+        // Three layers on one tile, and a tile outside the area.
+        $this->place(3, 4, 4, 1);
+        $this->ready(3);
+        $this->place(2, 4, 4, 2);
+        $this->place(3, 4, 4, 3);
+        $this->ready(3);
+        $this->place(3, 20, 20, 7);
+        $before = Season::query()->firstOrFail()->placements_count;
+
+        $this->api('POST', '/rollbacks', 5, ['x1' => 4, 'y1' => 4, 'x2' => 4, 'y2' => 4, 'username' => 'dana']);
+
+        $canvas = $this->app()->getContainer()->make(Canvas::class);
+        $season = $canvas->current(true);
+        $pixels = $canvas->pixels($season);
+        $this->assertSame(2, ord($pixels[4 * 32 + 4]), "normal's tile under dana's two shows again");
+        $this->assertSame(7, ord($pixels[20 * 32 + 20]));
+        $this->assertSame($before - 2, $season->placements_count);
+        $this->assertSame(1, (int) $this->database()->table('mural_painters')->where('user_id', 3)->value('tiles'));
+    }
 }

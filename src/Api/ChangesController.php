@@ -2,9 +2,8 @@
 
 namespace ErnestDefoe\Mural\Api;
 
+use ErnestDefoe\Mural\Access;
 use ErnestDefoe\Mural\Canvas;
-use ErnestDefoe\Mural\Season;
-use ErnestDefoe\Mural\Settings;
 use Flarum\Http\RequestUtil;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
@@ -33,7 +32,7 @@ class ChangesController implements RequestHandlerInterface
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         // A permission check only: no query.
-        if (! RequestUtil::getActor($request)->can(Settings::VIEW)) {
+        if (! Access::canView(RequestUtil::getActor($request))) {
             return Errors::make(403, 'permission_denied');
         }
 
@@ -46,9 +45,7 @@ class ChangesController implements RequestHandlerInterface
             return $this->answer(['reset' => true]);
         }
 
-        $season = new Season();
-        $season->id = $seasonId;
-        [$headEpoch, $headId] = array_map('intval', explode(':', $this->canvas->head($season)) + [0, 0]);
+        [$headEpoch, $headId] = array_map('intval', explode(':', $this->canvas->head($seasonId)) + [0, 0]);
 
         if ($headEpoch !== $epoch) {
             return $this->answer(['reset' => true]);
@@ -57,7 +54,7 @@ class ChangesController implements RequestHandlerInterface
             return $this->answer(['upto' => $since, 'p' => []]);
         }
 
-        $rows = $this->canvas->tail($season, $since, self::LIMIT);
+        $rows = $this->canvas->tailAfter($seasonId, $since, self::LIMIT);
         $flat = [];
         foreach ($rows as [, $x, $y, $c]) {
             array_push($flat, $x, $y, $c);

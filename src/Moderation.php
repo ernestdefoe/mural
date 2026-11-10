@@ -10,9 +10,10 @@ use Illuminate\Database\Eloquent\Builder;
 /**
  * Rollbacks: put an area of the canvas back to how it was before some
  * member's tiles, or before a stretch of time. Rows are marked with the
- * rollback's id, never deleted, so a rollback can be undone, and the
- * snapshot is replayed from the log (Canvas::rebuild) under the season's
- * lock. Open canvases see the epoch change and reload.
+ * rollback's id, never deleted, so a rollback can be undone. Only the
+ * rollback's rectangle is redrawn (Canvas::rebuildArea: the newest live row
+ * per tile), under the season's lock, so painting waits milliseconds, not a
+ * replay of the whole log. Open canvases see the epoch change and reload.
  */
 class Moderation
 {
@@ -55,7 +56,8 @@ class Moderation
             $rollback->tiles = $this->matching($season, $filters)->update(['rollback_id' => $rollback->id]);
             $rollback->save();
 
-            $this->canvas->rebuild($season);
+            $area = [$filters['x1'], $filters['y1'], $filters['x2'], $filters['y2']];
+            $this->canvas->rebuildArea($season, $area, -$rollback->tiles);
             $this->canvas->recountPainters($season, $users);
 
             return $rollback;
@@ -67,10 +69,12 @@ class Moderation
         $this->db->transaction(function () use ($rollback) {
             $season = $this->lock(Season::query()->findOrFail($rollback->season_id, Season::LIGHT));
             $users = Placement::query()->where('rollback_id', $rollback->id)->distinct()->pluck('user_id')->all();
-            Placement::query()->where('rollback_id', $rollback->id)->update(['rollback_id' => null]);
+            $restored = Placement::query()->where('rollback_id', $rollback->id)->update(['rollback_id' => null]);
             Rollback::query()->whereKey($rollback->id)->update(['undone_at' => Carbon::now()]);
 
-            $this->canvas->rebuild($season);
+            $f = json_decode($rollback->filters, true) ?: [];
+            $area = [(int) ($f['x1'] ?? 0), (int) ($f['y1'] ?? 0), (int) ($f['x2'] ?? $season->width - 1), (int) ($f['y2'] ?? $season->height - 1)];
+            $this->canvas->rebuildArea($season, $area, $restored);
             $this->canvas->recountPainters($season, $users);
         });
     }

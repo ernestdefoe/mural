@@ -44,6 +44,7 @@ export interface State {
   epoch: number;
   live: boolean;
   canModerate: boolean;
+  push: boolean;
   me?: Me;
 }
 

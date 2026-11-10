@@ -111,10 +111,20 @@ class Canvas
      *
      * @return list<array{int, int, int, int}> [id, x, y, colour]
      */
-    public function tail(Season $season, ?int $after = null, int $limit = 0): array
+    public function tail(Season $season): array
     {
-        $query = Placement::live($season->id)
-            ->where('id', '>', $after ?? $season->snapshot_upto)
+        return $this->tailAfter($season->id, $season->snapshot_upto);
+    }
+
+    /**
+     * Live placements after a placement id, oldest first.
+     *
+     * @return list<array{int, int, int, int}> [id, x, y, colour]
+     */
+    public function tailAfter(int $seasonId, int $after, int $limit = 0): array
+    {
+        $query = Placement::live($seasonId)
+            ->where('id', '>', $after)
             ->orderBy('id')
             ->toBase()
             ->select(['id', 'x', 'y', 'color']);
@@ -139,13 +149,20 @@ class Canvas
         return $pixels;
     }
 
-    /** "epoch:last id": what an open canvas compares to know there is nothing new. */
-    public function head(Season $season): string
+    /**
+     * "epoch:last id": what an open canvas compares to know there is nothing new.
+     *
+     * 🚨 On a miss both halves come from the tables, never from a model the
+     * caller built: a cached wrong epoch (say 0 after a rollback made it 1)
+     * sends every open canvas into a reset-reload loop until it expires.
+     */
+    public function head(int $seasonId): string
     {
-        $key = 'ernestdefoe-mural.head.'.$season->id;
+        $key = 'ernestdefoe-mural.head.'.$seasonId;
         $head = $this->cache->get($key);
         if (! is_string($head)) {
-            $head = $season->epoch.':'.(int) Placement::query()->where('season_id', $season->id)->max('id');
+            $epoch = (int) Season::query()->whereKey($seasonId)->value('epoch');
+            $head = $epoch.':'.(int) Placement::query()->where('season_id', $seasonId)->max('id');
             $this->cache->put($key, $head, self::HEAD_TTL);
         }
 
@@ -252,8 +269,10 @@ class Canvas
             $lock?->release();
         }
 
-        $this->setHead($result['season'], $result['placement']->id);
-        $this->broadcast($result['season'], $result['placement']);
+        $this->afterCommit(function () use ($result) {
+            $this->setHead($result['season'], $result['placement']->id);
+            $this->broadcast($result['season'], $result['placement']);
+        });
         $this->container->make(Integration\Cadence::class)->placed($actor, $result['placement']->created_at);
 
         return $result;
@@ -297,22 +316,77 @@ class Canvas
             'placements_count' => Placement::live($season->id)->count(),
         ]);
         $season = Season::query()->findOrFail($season->id);
-        $this->setHead($season, $upto);
-        $this->broadcastReset($season);
+        // Announced once the caller's transaction commits: a viewer told about a
+        // new epoch must be able to read it.
+        $this->afterCommit(function () use ($season, $upto) {
+            $this->setHead($season, $upto);
+            $this->broadcastReset($season);
+        });
 
         return $season;
     }
 
-    /** Recount the live tiles of these members after a rollback. @param list<int> $userIds */
+    /**
+     * Redraw one rectangle from the log after its history changed (a
+     * rollback or its undo), keeping the rest of the picture as it is.
+     * Caller holds the season's row lock. Each tile in the area takes its
+     * newest live placement (one grouped query on the tile index), or blank.
+     *
+     * @param array{int, int, int, int} $area x1, y1, x2, y2 (inclusive)
+     * @param int $tilesDelta live placements gained (undo) or lost (rollback)
+     */
+    public function rebuildArea(Season $season, array $area, int $tilesDelta): Season
+    {
+        [$x1, $y1, $x2, $y2] = $area;
+        $fresh = Season::query()->findOrFail($season->id);
+        $pixels = $this->pixels($fresh);
+        $width = $fresh->width;
+
+        $blank = str_repeat("\0", $x2 - $x1 + 1);
+        for ($y = $y1; $y <= $y2; $y++) {
+            $pixels = substr_replace($pixels, $blank, $y * $width + $x1, strlen($blank));
+        }
+
+        $newest = Placement::live($season->id)->whereBetween('x', [$x1, $x2])->whereBetween('y', [$y1, $y2])
+            ->groupBy('y', 'x')->toBase()->selectRaw('max(id) as id')->pluck('id')->map(fn ($id) => (int) $id)->all();
+        foreach (array_chunk($newest, 2000) as $ids) {
+            foreach (Placement::query()->whereIn('id', $ids)->toBase()->get(['x', 'y', 'color']) as $p) {
+                $pixels[$p->y * $width + $p->x] = chr((int) $p->color);
+            }
+        }
+
+        $upto = (int) Placement::query()->where('season_id', $season->id)->max('id');
+        Season::query()->whereKey($season->id)->update([
+            'snapshot' => Season::encode($pixels),
+            'snapshot_upto' => $upto,
+            'epoch' => $fresh->epoch + 1,
+            'placements_count' => max(0, $fresh->placements_count + $tilesDelta),
+        ]);
+        $season = Season::query()->findOrFail($season->id, Season::LIGHT);
+        $this->afterCommit(function () use ($season, $upto) {
+            $this->setHead($season, $upto);
+            $this->broadcastReset($season);
+        });
+
+        return $season;
+    }
+
+    /**
+     * Recount the live tiles of these members after a rollback: one grouped
+     * UPDATE per 500 members, the count taken in the database.
+     *
+     * @param list<int|null> $userIds
+     */
     public function recountPainters(Season $season, array $userIds): void
     {
+        $grammar = $this->db->getQueryGrammar();
+        $placements = $grammar->wrapTable('mural_placements');
+        $painters = $grammar->wrapTable('mural_painters');
+        $count = $this->db->raw("(select count(*) from $placements where $placements.season_id = $painters.season_id"
+            ." and $placements.user_id = $painters.user_id and $placements.rollback_id is null)");
+
         foreach (array_chunk(array_values(array_unique(array_filter($userIds))), 500) as $chunk) {
-            $counts = Placement::live($season->id)->whereIn('user_id', $chunk)->groupBy('user_id')
-                ->toBase()->selectRaw('user_id, count(*) as n')->pluck('n', 'user_id');
-            foreach ($chunk as $userId) {
-                $this->db->table('mural_painters')->where('season_id', $season->id)->where('user_id', $userId)
-                    ->update(['tiles' => (int) ($counts[$userId] ?? 0)]);
-            }
+            $this->db->table('mural_painters')->where('season_id', $season->id)->whereIn('user_id', $chunk)->update(['tiles' => $count]);
         }
     }
 
@@ -328,9 +402,24 @@ class Canvas
         return $store instanceof LockProvider ? $store->lock('ernestdefoe-mural.place.'.$actor->id, 10) : null;
     }
 
-    private function realtime(): bool
+    /** Run once the open transaction (if any) commits. */
+    public function afterCommit(callable $callback): void
     {
-        return class_exists(\Pusher\Pusher::class) && $this->container->bound(\Pusher\Pusher::class);
+        $this->db instanceof \Illuminate\Database\Connection ? $this->db->afterCommit($callback) : $callback();
+    }
+
+    /**
+     * Push tiles through flarum/realtime only when it can't cost a painter
+     * anything or leak anything: realtime is there, a real queue carries the
+     * push (on the sync queue a dead daemon would hold up the placement), and
+     * the mural is public (realtime has no members-only channel an extension
+     * can use, so a closed forum's canvases poll instead).
+     */
+    public function realtime(): bool
+    {
+        return class_exists(\Pusher\Pusher::class) && $this->container->bound(\Pusher\Pusher::class)
+            && ! $this->queue instanceof \Illuminate\Queue\SyncQueue
+            && Access::isPublic();
     }
 
     /** Queued, and only when flarum/realtime is there to carry it: a dead daemon never slows a placement. */

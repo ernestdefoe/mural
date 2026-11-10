@@ -29,5 +29,8 @@ return Migration::createTable('mural_seasons', function (Blueprint $table) {
     $table->dateTime('ended_at')->nullable()->index();
     $table->string('image_path', 150)->nullable();
     $table->string('timelapse_path', 150)->nullable();
+    // Saving the finished picture: null (not asked), building, failed, done. Claimed before work starts.
+    $table->string('archive_state', 10)->nullable();
+    $table->dateTime('archive_at')->nullable();
     $table->timestamps();
 });

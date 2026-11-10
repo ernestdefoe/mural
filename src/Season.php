@@ -21,6 +21,8 @@ use Flarum\Database\AbstractModel;
  * @property Carbon|null $ended_at
  * @property string|null $image_path
  * @property string|null $timelapse_path
+ * @property string|null $archive_state
+ * @property Carbon|null $archive_at
  */
 class Season extends AbstractModel
 {
@@ -38,10 +40,11 @@ class Season extends AbstractModel
         'painters_count' => 'integer',
         'started_at' => 'datetime',
         'ended_at' => 'datetime',
+        'archive_at' => 'datetime',
     ];
 
     /** The snapshot is ~a few KB to a few hundred: never loaded unless asked for. */
-    public const LIGHT = ['id', 'number', 'title', 'width', 'height', 'palette', 'snapshot_upto', 'epoch', 'placements_count', 'painters_count', 'started_at', 'ended_at', 'image_path', 'timelapse_path'];
+    public const LIGHT = ['id', 'number', 'title', 'width', 'height', 'palette', 'snapshot_upto', 'epoch', 'placements_count', 'painters_count', 'started_at', 'ended_at', 'image_path', 'timelapse_path', 'archive_state', 'archive_at'];
 
     /** @return list<string> */
     public function colours(): array

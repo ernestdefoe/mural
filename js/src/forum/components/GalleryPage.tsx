@@ -89,7 +89,12 @@ export default class GalleryPage extends Page {
         {this.seasons.map((season) => (
           <Link className="MuralCard" href={app.route('mural.season', { number: season.number })}>
             <span className="MuralCard-frame">
-              {season.imageUrl ? <img src={season.imageUrl} alt={seasonName(season)} loading="lazy" /> : null}
+              {/* While the season's picture is being saved, the server draws one from the canvas. */}
+              <img
+                src={season.imageUrl || `${app.forum.attribute('apiUrl')}/mural/preview?season=${season.number}`}
+                alt={seasonName(season)}
+                loading="lazy"
+              />
               <span className="MuralCard-play" aria-hidden="true">
                 <Icon name="fas fa-play" />
               </span>

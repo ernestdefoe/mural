@@ -2,6 +2,7 @@
 
 namespace ErnestDefoe\Mural\Api;
 
+use ErnestDefoe\Mural\Access;
 use ErnestDefoe\Mural\Canvas;
 use ErnestDefoe\Mural\Presenter;
 use ErnestDefoe\Mural\Settings;
@@ -31,7 +32,7 @@ class StateController implements RequestHandlerInterface
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         $actor = RequestUtil::getActor($request);
-        $actor->assertCan(Settings::VIEW);
+        Access::assertView($actor);
 
         $season = $this->season($request, $this->canvas, true);
         if (! $season) {
@@ -53,6 +54,8 @@ class StateController implements RequestHandlerInterface
             'epoch' => $season->epoch,
             'live' => $season->isOpen(),
             'canModerate' => $actor->can(Settings::MODERATE),
+            // Whether tiles are pushed (realtime + a real queue + a public mural); otherwise the canvas keeps polling.
+            'push' => $season->isOpen() && $this->canvas->realtime(),
         ];
         if ($season->isOpen() && ! $actor->isGuest()) {
             $ban = $this->canvas->banFor($actor);

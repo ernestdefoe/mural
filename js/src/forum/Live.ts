@@ -110,6 +110,8 @@ export default class Live {
   }
 
   private realtime(): boolean {
+    // The server pushes only when the mural is public and a queue carries it.
+    if (!this.state?.push) return false;
     const socket = (app as any).websocket;
     if (!socket || typeof socket.subscribe !== 'function') return false;
     // Realtime subscribes only guests to "public"; members join it themselves (no auth needed).
