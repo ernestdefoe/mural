@@ -2,6 +2,7 @@
 
 namespace ErnestDefoe\Mural\Http;
 
+use ErnestDefoe\Mural\Access;
 use ErnestDefoe\Mural\Archive;
 use ErnestDefoe\Mural\Season;
 use ErnestDefoe\Mural\Settings;
@@ -35,7 +36,7 @@ class PageContent
         $forum = $this->url->to('forum');
         $image = $this->url->to('api')->path('mural/preview');
 
-        if (! RequestUtil::getActor($request)->can(Settings::VIEW)) {
+        if (! Access::canView(RequestUtil::getActor($request))) {
             $document->title = $mural;
         } elseif ($number && ($season = Season::query()->where('number', $number)->whereNotNull('ended_at')->first(Season::LIGHT))) {
             $name = (string) $this->translator->trans('ernestdefoe-mural.forum.season.name', ['number' => $season->number]);

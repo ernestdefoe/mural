@@ -2,11 +2,11 @@
 
 namespace ErnestDefoe\Mural\Api;
 
+use ErnestDefoe\Mural\Access;
 use ErnestDefoe\Mural\Archive;
 use ErnestDefoe\Mural\Canvas;
 use ErnestDefoe\Mural\Presenter;
 use ErnestDefoe\Mural\Season;
-use ErnestDefoe\Mural\Settings;
 use ErnestDefoe\Mural\Stats;
 use Flarum\Http\RequestUtil;
 use Laminas\Diactoros\Response\JsonResponse;
@@ -30,7 +30,8 @@ class SeasonsController implements RequestHandlerInterface
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        RequestUtil::getActor($request)->assertCan(Settings::VIEW);
+        $actor = RequestUtil::getActor($request);
+        Access::assertView($actor);
         $page = max(0, self::int($request->getQueryParams(), 'page', 0) ?? 0);
 
         $seasons = Season::query()->whereNotNull('ended_at')->orderByDesc('number')
@@ -40,7 +41,7 @@ class SeasonsController implements RequestHandlerInterface
 
         // A season whose files failed to write gets them now (rare: the end request does it).
         $seasons = $seasons->map(fn (Season $s) => $this->archive->ensure($s));
-        $leaders = $this->stats->leaders($seasons->pluck('id')->all(), 3);
+        $leaders = $this->stats->leaders($seasons->pluck('id')->all(), 3, $actor);
 
         return new JsonResponse([
             'data' => $seasons->map(fn (Season $s) => $this->presenter->season($s) + ['top' => $leaders[$s->id] ?? []])->values()->all(),

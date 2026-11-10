@@ -2,11 +2,11 @@
 
 namespace ErnestDefoe\Mural\Api;
 
+use ErnestDefoe\Mural\Access;
 use ErnestDefoe\Mural\Archive;
 use ErnestDefoe\Mural\Canvas;
 use ErnestDefoe\Mural\Palette;
 use ErnestDefoe\Mural\Png;
-use ErnestDefoe\Mural\Settings;
 use Flarum\Http\RequestUtil;
 use Illuminate\Contracts\Cache\Repository as Cache;
 use Laminas\Diactoros\Response;
@@ -37,13 +37,13 @@ class PreviewController implements RequestHandlerInterface
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        RequestUtil::getActor($request)->assertCan(Settings::VIEW);
+        Access::assertView(RequestUtil::getActor($request));
         $season = $this->season($request, $this->canvas);
         if (! $season) {
             return Errors::make(404, 'mural_not_found');
         }
         if (! $season->isOpen() && ($url = $this->archive->url($this->archive->ensure($season)->image_path))) {
-            return new RedirectResponse($url, 302, ['Cache-Control' => 'public, max-age=86400']);
+            return new RedirectResponse($url, 302, ['Cache-Control' => (Access::isPublic() ? 'public' : 'private').', max-age=86400']);
         }
 
         $key = 'ernestdefoe-mural.preview.'.$season->id;
@@ -60,7 +60,8 @@ class PreviewController implements RequestHandlerInterface
         return (new Response($body, 200, [
             'Content-Type' => 'image/png',
             'Content-Length' => (string) strlen($png),
-            'Cache-Control' => 'public, max-age='.self::FRESH,
+            // A forum closed to guests: no shared cache may keep the picture.
+            'Cache-Control' => (Access::isPublic() ? 'public' : 'private').', max-age='.self::FRESH,
         ]));
     }
 }

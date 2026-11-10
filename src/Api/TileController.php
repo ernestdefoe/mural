@@ -2,11 +2,12 @@
 
 namespace ErnestDefoe\Mural\Api;
 
+use ErnestDefoe\Mural\Access;
 use ErnestDefoe\Mural\Canvas;
 use ErnestDefoe\Mural\Placement;
 use ErnestDefoe\Mural\Presenter;
-use ErnestDefoe\Mural\Settings;
 use Flarum\Http\RequestUtil;
+use Flarum\User\User;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -28,7 +29,7 @@ class TileController implements RequestHandlerInterface
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         $actor = RequestUtil::getActor($request);
-        $actor->assertCan(Settings::VIEW);
+        Access::assertView($actor);
         if ($this->limit->exceeded($request, $actor, 'tile', 240)) {
             return Errors::make(429, 'mural_slow_down');
         }
@@ -41,14 +42,16 @@ class TileController implements RequestHandlerInterface
             return Errors::make(404, 'mural_not_found');
         }
 
-        $placement = Placement::live($season->id)->where('y', $y)->where('x', $x)->orderByDesc('id')->with('user')->first();
+        $placement = Placement::live($season->id)->where('y', $y)->where('x', $x)->orderByDesc('id')->first();
+        // Only a member this viewer may see is named; otherwise the tile shows as painted by someone unnamed.
+        $user = $placement?->user_id ? User::query()->whereVisibleTo($actor)->find($placement->user_id) : null;
 
         return new JsonResponse(['data' => $placement ? [
             'x' => $x,
             'y' => $y,
             'color' => $placement->color,
             'placedAt' => $placement->created_at->toIso8601String(),
-            'user' => $this->presenter->user($placement->user),
+            'user' => $this->presenter->user($user),
             'count' => Placement::live($season->id)->where('y', $y)->where('x', $x)->count(),
         ] : null]);
     }

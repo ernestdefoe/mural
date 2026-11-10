@@ -2,8 +2,8 @@
 
 namespace ErnestDefoe\Mural\Api;
 
+use ErnestDefoe\Mural\Access;
 use ErnestDefoe\Mural\Canvas;
-use ErnestDefoe\Mural\Settings;
 use ErnestDefoe\Mural\Stats;
 use Flarum\Http\RequestUtil;
 use Laminas\Diactoros\Response\JsonResponse;
@@ -22,12 +22,13 @@ class StatsController implements RequestHandlerInterface
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        RequestUtil::getActor($request)->assertCan(Settings::VIEW);
+        $actor = RequestUtil::getActor($request);
+        Access::assertView($actor);
         $season = $this->season($request, $this->canvas);
         if (! $season) {
             return Errors::make(404, 'mural_not_found');
         }
 
-        return new JsonResponse(['data' => $this->stats->for($season)]);
+        return new JsonResponse(['data' => $this->stats->for($season, $actor)]);
     }
 }

@@ -17,7 +17,6 @@
 use ErnestDefoe\Mural\Api;
 use ErnestDefoe\Mural\Gdpr\MuralData;
 use ErnestDefoe\Mural\Http\PageContent;
-use ErnestDefoe\Mural\Settings;
 use Flarum\Api\Context;
 use Flarum\Api\Resource\ForumResource;
 use Flarum\Api\Schema;
@@ -61,18 +60,20 @@ return [
     (new Extend\ApiResource(ForumResource::class))
         ->fields(fn () => [
             Schema\Boolean::make('muralCanView')
-                ->get(fn ($forum, Context $context) => $context->getActor()->can(Settings::VIEW)),
+                ->get(fn ($forum, Context $context) => \ErnestDefoe\Mural\Access::canView($context->getActor())),
         ]),
 
+    // 🚨 String literals, not Settings:: constants: extend.php runs while a deploy
+    // swaps vendor/, and a class constant read here fatals every request then.
     (new Extend\Settings())
-        ->default(Settings::NAV, true)
-        ->default(Settings::WIDGET, true)
-        ->default(Settings::COOLDOWN, Settings::DEFAULT_COOLDOWN)
-        ->default(Settings::WIDTH, Settings::DEFAULT_SIZE)
-        ->default(Settings::HEIGHT, Settings::DEFAULT_SIZE)
-        ->default(Settings::PALETTE, 'mural32')
-        ->serializeToForum('muralNav', Settings::NAV, 'boolval')
-        ->serializeToForum('muralWidget', Settings::WIDGET, 'boolval'),
+        ->default('ernestdefoe-mural.nav', true)
+        ->default('ernestdefoe-mural.sidebar_widget', true)
+        ->default('ernestdefoe-mural.cooldown', 300)
+        ->default('ernestdefoe-mural.width', 128)
+        ->default('ernestdefoe-mural.height', 128)
+        ->default('ernestdefoe-mural.palette', 'mural32')
+        ->serializeToForum('muralNav', 'ernestdefoe-mural.nav', 'boolval')
+        ->serializeToForum('muralWidget', 'ernestdefoe-mural.sidebar_widget', 'boolval'),
 
     // The foreign keys do this too, where the database enforces them (SQLite may not).
     (new Extend\Event())

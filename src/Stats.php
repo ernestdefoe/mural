@@ -19,12 +19,38 @@ class Stats
     {
     }
 
-    /** @return array<string, mixed> */
-    public function for(Season $season, int $top = 10): array
+    /**
+     * The numbers are cached for everyone; the top painters are resolved for
+     * this viewer (only members they may see), one query.
+     *
+     * @return array<string, mixed>
+     */
+    public function for(Season $season, User $actor, int $top = 10): array
     {
         $key = 'ernestdefoe-mural.stats.'.$season->id.'.'.$season->epoch.'.'.$top;
+        $stats = $this->cache->remember($key, $season->isOpen() ? self::TTL : 3600, fn () => $this->compute($season, $top));
+        $stats['top'] = $this->people($stats['top'], $actor);
 
-        return $this->cache->remember($key, $season->isOpen() ? self::TTL : 3600, fn () => $this->compute($season, $top));
+        return $stats;
+    }
+
+    /**
+     * [user id, tiles] rows as members this viewer may see.
+     *
+     * @param list<array{int, int}> $rows
+     * @return list<array{user: array<string, mixed>|null, tiles: int}>
+     */
+    private function people(array $rows, User $actor): array
+    {
+        $users = User::query()->whereVisibleTo($actor)->whereIn('id', array_column($rows, 0))->get()->keyBy('id');
+        $out = [];
+        foreach ($rows as [$id, $tiles]) {
+            if ($users->has($id)) {
+                $out[] = ['user' => $this->presenter->user($users->get($id)), 'tiles' => $tiles];
+            }
+        }
+
+        return $out;
     }
 
     /** @return array<string, mixed> */
@@ -44,7 +70,6 @@ class Stats
 
         $leaders = $this->db->table('mural_painters')->where('season_id', $season->id)->where('tiles', '>', 0)
             ->orderByDesc('tiles')->orderBy('last_at')->limit($top)->get(['user_id', 'tiles']);
-        $users = User::query()->whereIn('id', $leaders->pluck('user_id'))->get()->keyBy('id');
 
         return [
             'tiles' => $season->placements_count,
@@ -55,10 +80,8 @@ class Stats
             'active' => $season->isOpen()
                 ? $this->db->table('mural_painters')->where('season_id', $season->id)->where('last_at', '>=', $now->copy()->subMinutes(15))->count()
                 : 0,
-            'top' => $leaders->filter(fn ($row) => $users->has($row->user_id))->map(fn ($row) => [
-                'user' => $this->presenter->user($users->get($row->user_id)),
-                'tiles' => (int) $row->tiles,
-            ])->values()->all(),
+            // Ids only: who a viewer may see is decided per request (people()).
+            'top' => $leaders->map(fn ($row) => [(int) $row->user_id, (int) $row->tiles])->all(),
         ];
     }
 
@@ -73,7 +96,7 @@ class Stats
      * @param list<int> $seasonIds
      * @return array<int, list<array{user: array<string, mixed>|null, tiles: int}>>
      */
-    public function leaders(array $seasonIds, int $top): array
+    public function leaders(array $seasonIds, int $top, User $actor): array
     {
         if (! $seasonIds) {
             return [];
@@ -82,7 +105,7 @@ class Stats
             ->select(['season_id', 'user_id', 'tiles'])
             ->selectRaw('row_number() over (partition by season_id order by tiles desc, last_at asc) as place');
         $rows = $this->db->query()->fromSub($ranked, 'ranked')->where('place', '<=', $top)->orderBy('season_id')->orderBy('place')->get();
-        $users = User::query()->whereIn('id', $rows->pluck('user_id')->unique())->get()->keyBy('id');
+        $users = User::query()->whereVisibleTo($actor)->whereIn('id', $rows->pluck('user_id')->unique())->get()->keyBy('id');
 
         $leaders = [];
         foreach ($rows as $row) {
