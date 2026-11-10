@@ -33,6 +33,9 @@ export default class MuralPage extends Page {
   private tick: number | undefined;
   private urlTimer: number | undefined;
   private dockObserver: ResizeObserver | undefined;
+  private stageObserver: IntersectionObserver | undefined;
+  /** Phones: the dock is fixed to the bottom while the canvas is on screen, and in its slot otherwise. */
+  pinned = false;
 
   oninit(vnode: Mithril.Vnode) {
     super.oninit(vnode);
@@ -63,6 +66,13 @@ export default class MuralPage extends Page {
     this.dockObserver = new ResizeObserver(() => this.liftDock());
     const dock = vnode.dom.querySelector('.MuralDock');
     if (dock) this.dockObserver.observe(dock);
+    this.stageObserver = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting !== this.pinned) {
+        this.pinned = entry.isIntersecting;
+        m.redraw();
+      }
+    });
+    this.stageObserver.observe(canvas);
   }
 
   /**
@@ -86,6 +96,7 @@ export default class MuralPage extends Page {
     this.viewer?.destroy();
     window.removeEventListener('resize', this.liftDock);
     this.dockObserver?.disconnect();
+    this.stageObserver?.disconnect();
     document.documentElement.style.removeProperty('--mural-dock-bottom');
     document.documentElement.style.removeProperty('--mural-dock-height');
     clearInterval(this.statsTimer);
@@ -242,7 +253,9 @@ export default class MuralPage extends Page {
       <PageStructure className="MuralPage" sidebar={() => <IndexSidebar />}>
         {this.head()}
         {this.stage()}
-        <Dock page={this} />
+        <div className={classList('MuralDock-slot', this.pinned && 'is-pinned')}>
+          <Dock page={this} />
+        </div>
         {this.info_()}
       </PageStructure>
     );

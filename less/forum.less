@@ -991,14 +991,21 @@ html:not(#x-hi) .MuralWidget-link:hover {
     left: 8px;
     top: 8px;
   }
-  // The dock stays on screen while you pan, so painting never needs a scroll.
+  // While the canvas is on screen the dock is fixed to the bottom, so painting
+  // never needs a scroll; otherwise it waits in its slot under the canvas.
   // Fixed, not sticky: themes with overflow-x: hidden on <body> turn sticky off.
-  .MuralDock {
+  .MuralDock-slot {
+    min-height: var(--mural-dock-height, 0px);
+    margin: 10px -16px 0;
+  }
+  .MuralDock-slot.is-pinned .MuralDock {
     position: fixed;
     left: 0;
     right: 0;
     bottom: var(--mural-dock-bottom, 0px);
     z-index: 3;
+  }
+  .MuralDock {
     margin: 0;
     padding: 10px 16px ~"calc(10px + env(safe-area-inset-bottom))";
     border-radius: 16px 16px 0 0;
@@ -1037,10 +1044,6 @@ html:not(#x-hi) .MuralWidget-link:hover {
   }
   .MuralStats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  // Room at the end of the page for the fixed dock.
-  .MuralPage .MuralInfo {
-    padding-bottom: ~"calc(var(--mural-dock-height, 0px) + 16px)";
   }
   .MuralModal .MuralFields--four {
     grid-template-columns: repeat(2, minmax(0, 1fr));
