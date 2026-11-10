@@ -980,7 +980,7 @@ html:not(#x-hi) .MuralWidget-link:hover {
     font-size: 19px;
   }
   .MuralStage {
-    height: ~"max(300px, calc(100svh - 300px))";
+    height: ~"max(300px, calc(100svh - 300px - var(--mural-dock-bottom, 0px)))";
     border-radius: 12px;
   }
   .MuralStage-tools {
@@ -994,7 +994,7 @@ html:not(#x-hi) .MuralWidget-link:hover {
   // The dock stays on screen while you pan, so painting never needs a scroll.
   .MuralDock {
     position: sticky;
-    bottom: 0;
+    bottom: var(--mural-dock-bottom, 0px);
     z-index: 3;
     margin: 10px -16px 0;
     padding: 10px 16px ~"calc(10px + env(safe-area-inset-bottom))";

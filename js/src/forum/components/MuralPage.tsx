@@ -57,12 +57,23 @@ export default class MuralPage extends Page {
       onConfirm: () => this.place(),
     });
     this.live.load().then(() => this.fromUrl());
+    this.liftDock();
+    window.addEventListener('resize', this.liftDock);
   }
+
+  /** A bottom tab bar (Mobile Tab and its forks) is fixed over the page: the pinned dock sits above it, not under it. */
+  liftDock = () => {
+    const bar = document.querySelector<HTMLElement>('.MobileTab-bar, .MobileTab');
+    const lift = bar && getComputedStyle(bar).position === 'fixed' && bar.offsetHeight ? bar.offsetHeight : 0;
+    document.documentElement.style.setProperty('--mural-dock-bottom', `${lift}px`);
+  };
 
   onremove(vnode: Mithril.VnodeDOM) {
     super.onremove(vnode);
     this.live.stop();
     this.viewer?.destroy();
+    window.removeEventListener('resize', this.liftDock);
+    document.documentElement.style.removeProperty('--mural-dock-bottom');
     clearInterval(this.statsTimer);
     clearInterval(this.tick);
     clearTimeout(this.hoverTimer);
