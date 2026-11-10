@@ -19,6 +19,14 @@ One shared canvas your whole Flarum 2 community paints together, one tile at a t
 - **Cadence.** With ernestdefoe/cadence installed, a tile counts as the day's activity and keeps a member's streak alive.
 - **Permissions** to view, paint and moderate. **GDPR**: with Flarum's GDPR extension, a member's tiles are in their data export, and erasing them keeps the art but forgets who painted it.
 
+## Screenshots
+
+| | |
+|---|---|
+| ![Zoomed in, with who painted the tile](screenshots/zoomed.png) | ![Dark mode](screenshots/mural-dark.png) |
+| ![The gallery](screenshots/gallery.png) | ![A finished season's timelapse](screenshots/timelapse.png) |
+| ![On a phone](screenshots/phone.png) | ![Moderation](screenshots/moderation.png) |
+
 ## Install
 
 ```sh

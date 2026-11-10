@@ -295,7 +295,7 @@ export default class MuralPage extends Page {
               icon="fas fa-broom"
               menuClassName="Dropdown-menu--right"
             >
-              <Button icon="fas fa-vector-square" onclick={() => this.startArea()}>
+              <Button icon="fas fa-eraser" onclick={() => this.startArea()}>
                 {t('mod.rollback')}
               </Button>
               <Button icon="fas fa-ban" onclick={() => app.modal.show(BansModal)}>
@@ -357,7 +357,7 @@ export default class MuralPage extends Page {
         </div>
         {v?.areaMode || v?.area ? (
           <div className="MuralStage-banner">
-            <Icon name="fas fa-vector-square" /> {t('mod.area_help')}
+            <Icon name="fas fa-eraser" /> {t('mod.area_help')}
             <Button className="Button Button--link" onclick={() => this.stopArea()}>
               {t('mod.cancel')}
             </Button>
