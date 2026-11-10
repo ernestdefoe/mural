@@ -16,9 +16,9 @@ return Migration::createTable('mural_painters', function (Blueprint $table) {
     $table->dateTime('next_at')->nullable();
 
     $table->primary(['season_id', 'user_id']);
-    $table->index(['season_id', 'tiles'], 'mural_pa_top');
-    $table->index('user_id', 'mural_pa_user');
+    $table->index(['season_id', 'tiles']);
+    $table->index('user_id');
 
-    $table->foreign('season_id', 'mural_pa_season_fk')->references('id')->on('mural_seasons')->cascadeOnDelete();
-    $table->foreign('user_id', 'mural_pa_user_fk')->references('id')->on('users')->cascadeOnDelete();
+    $table->foreign('season_id')->references('id')->on('mural_seasons')->cascadeOnDelete();
+    $table->foreign('user_id')->references('id')->on('users')->cascadeOnDelete();
 });

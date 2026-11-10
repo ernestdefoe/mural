@@ -14,7 +14,7 @@
 - **The sidebar picture is a PNG** from `/api/mural/preview`, encoded at most every 20 s (cached), with no canvas code on every page. 🚨 No route may end in `.png`/`.css`/an asset extension: nginx serves those as static files and PHP never sees them (Herd hides it). `Png` writes palette PNGs with zlib only: no GD.
 - **Ending a season** closes it and opens the next in one transaction, then writes the picture (scaled to ~1024 px) and the timelapse file (`MRL1`, w, h, then 5 bytes per live placement) to the `flarum-assets` disk. The gallery re-writes missing files (`Archive::ensure`).
 - Size and palette are fixed per season (tiles store palette indices); the settings apply to the next season.
-- Index and foreign-key names are explicit and short: generated ones carry the table prefix and overflow MySQL's 64 characters.
+- Never name an index, unique or foreign key in a migration: Laravel doesn't prefix explicit names, so two installs sharing a database collide (MySQL FK names are database-wide; PostgreSQL and SQLite index names are schema-wide). Generated names carry the prefix; the longest (`mural_placements_season_id_created_at_index`, 42) leaves room for a 22-character prefix.
 - Mithril: a bare function used as a JSX tag is a closure component (it must return `{ view }`); `parts.tsx` wraps render functions with `fc()`. Don't use JSX fragments.
 - forum.js only wires routes, the nav link and the sidebar picture; the canvas engine (`Viewer.ts`), live state (`Live.ts`), pages and moderation tools are one lazy chunk (`paint.tsx`).
 

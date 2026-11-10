@@ -16,7 +16,7 @@ return Migration::createTable('mural_rollbacks', function (Blueprint $table) {
     $table->dateTime('created_at');
     $table->dateTime('undone_at')->nullable();
 
-    $table->index('season_id', 'mural_rb_season');
-    $table->foreign('season_id', 'mural_rb_season_fk')->references('id')->on('mural_seasons')->cascadeOnDelete();
-    $table->foreign('actor_id', 'mural_rb_actor_fk')->references('id')->on('users')->nullOnDelete();
+    $table->index('season_id');
+    $table->foreign('season_id')->references('id')->on('mural_seasons')->cascadeOnDelete();
+    $table->foreign('actor_id')->references('id')->on('users')->nullOnDelete();
 });

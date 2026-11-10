@@ -11,6 +11,6 @@ return Migration::createTable('mural_bans', function (Blueprint $table) {
     $table->dateTime('until')->nullable();
     $table->dateTime('created_at');
 
-    $table->foreign('user_id', 'mural_bn_user_fk')->references('id')->on('users')->cascadeOnDelete();
-    $table->foreign('banned_by', 'mural_bn_by_fk')->references('id')->on('users')->nullOnDelete();
+    $table->foreign('user_id')->references('id')->on('users')->cascadeOnDelete();
+    $table->foreign('banned_by')->references('id')->on('users')->nullOnDelete();
 });
